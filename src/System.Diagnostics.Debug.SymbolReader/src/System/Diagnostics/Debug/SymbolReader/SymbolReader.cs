@@ -60,6 +60,49 @@ namespace System.Diagnostics.Debug.SymbolReader
                 
             }
         }
+        
+        public static bool GetLocalVariableName(string assemblyFileName, int methodToken, int ilOffset, int localIndex, out string localVarName)
+        {
+            MetadataReader peReader, pdbReader;
+            localVarName = null;
+            
+            if (!GetReaders(assemblyFileName, out peReader, out pdbReader))
+                return false;
+
+            Handle handle = MetadataTokens.Handle(methodToken);
+            if (handle.Kind != HandleKind.MethodDefinition)
+                return false;
+
+            MethodDebugInformationHandle methodDebugHandle = ((MethodDefinitionHandle)handle).ToDebugInformationHandle();
+            LocalScopeHandleCollection localScopes = pdbReader.GetLocalScopes(methodDebugHandle);
+            LocalScope? bestScope = null;
+            foreach (LocalScopeHandle scopeHandle in localScopes)
+            {
+                LocalScope scope = pdbReader.GetLocalScope(scopeHandle);
+                if (!bestScope.HasValue)
+                    bestScope = scope;
+                else if (scope.StartOffset > ilOffset)
+                    break;
+                else if (scope.StartOffset >= bestScope.Value.StartOffset)
+                    bestScope = scope;
+            }
+            
+            if (!bestScope.HasValue)
+                return false;
+            LocalVariableHandleCollection localVars = bestScope.Value.GetLocalVariables();
+            foreach (LocalVariableHandle varHandle in localVars)
+            {
+                LocalVariable localVar = pdbReader.GetLocalVariable(varHandle);
+                if (localVar.Index == localIndex)
+                {
+                    if (localVar.Attributes == LocalVariableAttributes.DebuggerHidden)
+                        return false;
+                    localVarName = pdbReader.GetString(localVar.Name);
+                    return true;
+                }
+            }
+            return false;
+        }
     
         /// <summary>
         /// Returns metadata readers for assembly PE file and portable PDB.
