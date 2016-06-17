@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 
 namespace System.Diagnostics.Debug.SymbolReader
 {
@@ -61,10 +62,19 @@ namespace System.Diagnostics.Debug.SymbolReader
             }
         }
         
-        public static bool GetLocalVariableName(string assemblyFileName, int methodToken, int ilOffset, int localIndex, out string localVarName)
+        /// <summary>
+        /// Returns local variable name for given local index and IL offset.
+        /// </summary>
+        /// <param name="assemblyFileName">file name of the assembly</param>
+        /// <param name="methodToken">method token</param>
+        /// <param name="ilOffset">IL ofsset</param>
+        /// <param name="localIndex">local variable index</param>
+        /// <param name="localVarName">local variable name return</param>
+        /// <returns>true if name has been found</returns>
+        public static bool GetLocalVariableName(string assemblyFileName, int methodToken, int ilOffset, int localIndex, out IntPtr localVarName)
         {
             MetadataReader peReader, pdbReader;
-            localVarName = null;
+            localVarName = IntPtr.Zero;
             
             if (!GetReaders(assemblyFileName, out peReader, out pdbReader))
                 return false;
@@ -97,7 +107,7 @@ namespace System.Diagnostics.Debug.SymbolReader
                 {
                     if (localVar.Attributes == LocalVariableAttributes.DebuggerHidden)
                         return false;
-                    localVarName = pdbReader.GetString(localVar.Name);
+                    localVarName = Marshal.StringToBSTR(pdbReader.GetString(localVar.Name));
                     return true;
                 }
             }
