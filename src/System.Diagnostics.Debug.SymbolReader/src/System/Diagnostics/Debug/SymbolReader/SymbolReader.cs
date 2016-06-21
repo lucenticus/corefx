@@ -67,15 +67,14 @@ namespace System.Diagnostics.Debug.SymbolReader
         /// </summary>
         /// <param name="assemblyFileName">file name of the assembly</param>
         /// <param name="methodToken">method token</param>
-        /// <param name="ilOffset">IL ofsset</param>
         /// <param name="localIndex">local variable index</param>
         /// <param name="localVarName">local variable name return</param>
         /// <returns>true if name has been found</returns>
-        public static bool GetLocalVariableName(string assemblyFileName, int methodToken, int ilOffset, int localIndex, out IntPtr localVarName)
+        public static bool GetLocalVariableName(string assemblyFileName, int methodToken, int localIndex, out IntPtr localVarName)
         {
             MetadataReader peReader, pdbReader;
             localVarName = IntPtr.Zero;
-            
+
             if (!GetReaders(assemblyFileName, out peReader, out pdbReader))
                 return false;
 
@@ -85,30 +84,20 @@ namespace System.Diagnostics.Debug.SymbolReader
 
             MethodDebugInformationHandle methodDebugHandle = ((MethodDefinitionHandle)handle).ToDebugInformationHandle();
             LocalScopeHandleCollection localScopes = pdbReader.GetLocalScopes(methodDebugHandle);
-            LocalScope? bestScope = null;
             foreach (LocalScopeHandle scopeHandle in localScopes)
             {
                 LocalScope scope = pdbReader.GetLocalScope(scopeHandle);
-                if (!bestScope.HasValue)
-                    bestScope = scope;
-                else if (scope.StartOffset > ilOffset)
-                    break;
-                else if (scope.StartOffset >= bestScope.Value.StartOffset)
-                    bestScope = scope;
-            }
-            
-            if (!bestScope.HasValue)
-                return false;
-            LocalVariableHandleCollection localVars = bestScope.Value.GetLocalVariables();
-            foreach (LocalVariableHandle varHandle in localVars)
-            {
-                LocalVariable localVar = pdbReader.GetLocalVariable(varHandle);
-                if (localVar.Index == localIndex)
+                LocalVariableHandleCollection localVars = scope.GetLocalVariables();
+                foreach (LocalVariableHandle varHandle in localVars)
                 {
-                    if (localVar.Attributes == LocalVariableAttributes.DebuggerHidden)
-                        return false;
-                    localVarName = Marshal.StringToBSTR(pdbReader.GetString(localVar.Name));
-                    return true;
+                    LocalVariable localVar = pdbReader.GetLocalVariable(varHandle);
+                    if (localVar.Index == localIndex)
+                    {
+                        if (localVar.Attributes == LocalVariableAttributes.DebuggerHidden)
+                            return false;
+                        localVarName = Marshal.StringToBSTR(pdbReader.GetString(localVar.Name));
+                        return true;
+                    }
                 }
             }
             return false;
