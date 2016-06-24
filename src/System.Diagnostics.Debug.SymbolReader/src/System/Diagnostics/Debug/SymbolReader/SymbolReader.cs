@@ -40,7 +40,6 @@ namespace System.Diagnostics.Debug.SymbolReader
             MetadataReader peReader, pdbReader;
             methToken = 0;
             ilOffset = 0;
-            
             if (!GetReaders(assemblyFileName, out peReader, out pdbReader))
                 return;
             
@@ -60,6 +59,45 @@ namespace System.Diagnostics.Debug.SymbolReader
                 }
                 
             }
+        }
+        /// <summary>
+	/// Returns source line number and source file name for given IL offset and method token.
+        /// </summary>
+        /// <param name="assemblyFileName">file name of the assembly</param>
+        /// <param name="methToken">method token</param>
+        /// <param name="ilOffset">IL offset</param>
+        /// <param name="lineNumber">source line number return</param>
+	/// <param name="fileName">source file name</param>
+        public static int GetLineByILOffset(string assemblyFileName, int methodToken, int ilOffset, out int lineNumber, out IntPtr fileName)
+        {
+            MetadataReader peReader, pdbReader;
+            lineNumber = 0;
+            fileName = IntPtr.Zero;
+            if (!GetReaders(assemblyFileName, out peReader, out pdbReader))
+                return -1;
+            Handle handle = MetadataTokens.Handle(methodToken);
+            if (handle.Kind != HandleKind.MethodDefinition)
+                return -1;
+
+            MethodDebugInformationHandle methodDebugHandle = ((MethodDefinitionHandle)handle).ToDebugInformationHandle();
+            MethodDebugInformation methodDebugInfo = pdbReader.GetMethodDebugInformation(methodDebugHandle);
+            SequencePointCollection sequencePoints = methodDebugInfo.GetSequencePoints();
+
+            SequencePoint nearestPoint = sequencePoints.GetEnumerator().Current;
+            foreach (SequencePoint point in sequencePoints)
+            {
+                if (point.Offset <= ilOffset)
+                {
+                    nearestPoint = point;
+                }
+                else
+                {
+                    lineNumber = nearestPoint.StartLine;
+                    fileName = Marshal.StringToBSTR(pdbReader.GetString(pdbReader.GetDocument(nearestPoint.Document).Name));
+                    return 0;
+                }
+            }
+            return -1;
         }
         
         /// <summary>
