@@ -86,7 +86,7 @@ namespace System.Diagnostics.Debug.SymbolReader
 
             string sourceFileName = null;
             
-            if (!GetSourceLineByILOffset(assemblyFileName, methodToken, ilOffset, out lineNumber, out sourceFileName)
+            if (!GetSourceLineByILOffset(assemblyFileName, methodToken, ilOffset, out lineNumber, out sourceFileName))
                 return false;
             
             fileName = Marshal.StringToBSTR(sourceFileName);
