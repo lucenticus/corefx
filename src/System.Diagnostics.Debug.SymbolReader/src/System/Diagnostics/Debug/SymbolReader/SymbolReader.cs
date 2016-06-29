@@ -108,7 +108,7 @@ namespace System.Diagnostics.Debug.SymbolReader
             MetadataReader peReader, pdbReader;
             lineNumber = 0;
             fileName = null;
-            
+
             try
             {
                 if (!GetReaders(assemblyFileName, out peReader, out pdbReader))
@@ -117,17 +117,20 @@ namespace System.Diagnostics.Debug.SymbolReader
                 if (handle.Kind != HandleKind.MethodDefinition)
                     return false;
 
-                MethodDebugInformationHandle methodDebugHandle = ((MethodDefinitionHandle)handle).ToDebugInformationHandle();
+                MethodDebugInformationHandle methodDebugHandle =
+                    ((MethodDefinitionHandle)handle).ToDebugInformationHandle();
                 MethodDebugInformation methodDebugInfo = pdbReader.GetMethodDebugInformation(methodDebugHandle);
                 SequencePointCollection sequencePoints = methodDebugInfo.GetSequencePoints();
 
                 SequencePoint nearestPoint = sequencePoints.GetEnumerator().Current;
                 foreach (SequencePoint point in sequencePoints)
                 {
-                    if (point.Offset <= ilOffset)
+                    if (point.Offset < ilOffset)
                         nearestPoint = point;
                     else
                     {
+                        if (point.Offset == ilOffset)
+                            nearestPoint = point;
                         if (nearestPoint.StartLine == 0)
                             return false;
                         lineNumber = nearestPoint.StartLine;
@@ -143,8 +146,8 @@ namespace System.Diagnostics.Debug.SymbolReader
                 pdbReader = null;
             }
         }
-        
-        
+
+
         /// <summary>
         /// Returns local variable name for given local index and IL offset.
         /// </summary>
