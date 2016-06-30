@@ -131,7 +131,7 @@ namespace System.Diagnostics.Debug.SymbolReader
                     {
                         if (point.Offset == ilOffset)
                             nearestPoint = point;
-                        if (nearestPoint.StartLine == 0)
+                        if (nearestPoint.StartLine == 0 || nearestPoint.StartLine == SequencePoint.HiddenLine)
                             return false;
                         lineNumber = nearestPoint.StartLine;
                         fileName = pdbReader.GetString(pdbReader.GetDocument(nearestPoint.Document).Name);
