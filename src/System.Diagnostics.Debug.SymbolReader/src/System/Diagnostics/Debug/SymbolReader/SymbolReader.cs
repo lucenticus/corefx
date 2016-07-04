@@ -88,14 +88,14 @@ namespace System.Diagnostics.Debug.SymbolReader
 
 
         /// <summary>
-        /// Returns source line number and source file name for given IL offset and method token.
+        /// Returns source name, line numbers and IL offsets for given method token.
         /// </summary>
         /// <param name="assemblyFileName">file name of the assembly</param>
         /// <param name="methToken">method token</param>
+        /// <param name="debugInfo">structure with debug information return</param>
         /// <returns> true if information is available</returns>
         public static bool GetInfoForMethod(string assemblyFileName, int methodToken, ref MethodDebugInfo debugInfo)
         {
-
             var points = new List<DebugInfo>();
 
             if (!GetDebugInfoForMethod(assemblyFileName, methodToken, ref points))
@@ -104,8 +104,8 @@ namespace System.Diagnostics.Debug.SymbolReader
             }
 
             var structSize = Marshal.SizeOf(typeof(DebugInfo));
-            int count = points.Count;
-            debugInfo.size = count;
+
+            debugInfo.size = points.Count;
             var ptr = debugInfo.points;
 
             foreach (var info in points)
@@ -119,10 +119,11 @@ namespace System.Diagnostics.Debug.SymbolReader
 
 
         /// <summary>
-        /// Returns source line number and source file name for given IL offset and method token.
+        /// Helper method to return source name, line numbers and IL offsets for given method token.
         /// </summary>
         /// <param name="assemblyFileName">file name of the assembly</param>
         /// <param name="methToken">method token</param>
+        /// <param name="pints">List of debug information for each sequence point return</param>
         /// <returns> true if information is available</returns>
 
         public static bool GetDebugInfoForMethod(string assemblyFileName, int methodToken, ref List<DebugInfo> points)
@@ -151,8 +152,6 @@ namespace System.Diagnostics.Debug.SymbolReader
                     debugInfo.fileName = pdbReader.GetString(pdbReader.GetDocument(point.Document).Name);
                     debugInfo.ilOffset = point.Offset;
                     points.Add(debugInfo);
-
-                    //return true;
                 }
                 return true;
             }
