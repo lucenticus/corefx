@@ -8,13 +8,29 @@ using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
 
 namespace System.Diagnostics.Debug.SymbolReader
 {
 
     public class SymbolReader
     {
-    
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        public struct DebugInfo
+        {
+            public int lineNumber;
+            public int ilOffset;
+            public string fileName;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MethodDebugInfo
+        {
+            public IntPtr points;
+            public int size;
+        }
+
+
         /// <summary>
         /// Checks availability of debugging information for given assembly.
         /// </summary>
@@ -62,6 +78,83 @@ namespace System.Diagnostics.Debug.SymbolReader
                         }
                     }
                 }
+            }
+            finally
+            {
+                peReader = null;
+                pdbReader = null;
+            }
+        }
+
+
+        /// <summary>
+        /// Returns source line number and source file name for given IL offset and method token.
+        /// </summary>
+        /// <param name="assemblyFileName">file name of the assembly</param>
+        /// <param name="methToken">method token</param>
+        /// <returns> true if information is available</returns>
+        public static bool GetInfoForMethod(string assemblyFileName, int methodToken, ref MethodDebugInfo debugInfo)
+        {
+
+            var points = new List<DebugInfo>();
+
+            if (!GetDebugInfoForMethod(assemblyFileName, methodToken, ref points))
+            {
+                return false;
+            }
+
+            var structSize = Marshal.SizeOf(typeof(DebugInfo));
+            int count = points.Count;
+            debugInfo.size = count;
+            var ptr = debugInfo.points;
+
+            foreach (var info in points)
+            {
+                Marshal.StructureToPtr(info, ptr, false);
+                ptr = (IntPtr)((int)ptr + structSize);
+            }
+
+            return true;
+        }
+
+
+        /// <summary>
+        /// Returns source line number and source file name for given IL offset and method token.
+        /// </summary>
+        /// <param name="assemblyFileName">file name of the assembly</param>
+        /// <param name="methToken">method token</param>
+        /// <returns> true if information is available</returns>
+
+        public static bool GetDebugInfoForMethod(string assemblyFileName, int methodToken, ref List<DebugInfo> points)
+        {
+            MetadataReader peReader, pdbReader;
+            try
+            {
+                if (!GetReaders(assemblyFileName, out peReader, out pdbReader))
+                    return false;
+                Handle handle = MetadataTokens.Handle(methodToken);
+                if (handle.Kind != HandleKind.MethodDefinition)
+                    return false;
+
+                MethodDebugInformationHandle methodDebugHandle =
+                    ((MethodDefinitionHandle)handle).ToDebugInformationHandle();
+                MethodDebugInformation methodDebugInfo = pdbReader.GetMethodDebugInformation(methodDebugHandle);
+                SequencePointCollection sequencePoints = methodDebugInfo.GetSequencePoints();
+
+                foreach (SequencePoint point in sequencePoints)
+                {
+                    if (point.StartLine == 0 || point.StartLine == SequencePoint.HiddenLine)
+                        continue;
+                    DebugInfo debugInfo = new DebugInfo();
+
+                    debugInfo.lineNumber = point.StartLine;
+                    debugInfo.fileName = pdbReader.GetString(pdbReader.GetDocument(point.Document).Name);
+                    debugInfo.ilOffset = point.Offset;
+                    points.Add(debugInfo);
+
+                    //return true;
+                }
+                return true;
             }
             finally
             {
